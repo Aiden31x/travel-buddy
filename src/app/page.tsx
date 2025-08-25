@@ -1,103 +1,188 @@
-import Image from "next/image";
+'use client'; // Client-side component for interactivity
+
+import { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet'; // For custom markers if needed
+
+// Fix for Leaflet marker icons in Next.js
+import 'leaflet/dist/leaflet.css';
+
+// Define types for API responses (based on your backend)
+interface Prediction {
+  place_id: string;
+  description: string;
+  lat: string;
+  lon: string;
+  type: string;
+}
+
+interface PlaceDetails {
+  place_id: string;
+  name: string;
+  lat: string;
+  lon: string;
+  address?: {
+    road?: string;
+    city?: string;
+    country?: string;
+    postcode?: string;
+  };
+  opening_hours?: string;
+  website?: string;
+}
+
+interface NearbyPlace {
+  id: string;
+  name: string;
+  lat: string;
+  lon: string;
+  type: string;
+  category: string;
+}
+
+// Fix Leaflet default marker icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Create custom icons for different marker types
+const createCustomIcon = (color: string) => {
+  return L.divIcon({
+    html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    className: 'custom-marker',
+    iconSize: [25, 25],
+    iconAnchor: [12, 12],
+  });
+};
+
+const selectedPlaceIcon = createCustomIcon('#ef4444'); // Red
+const nearbyPlaceIcon = createCustomIcon('#3b82f6'); // Blue
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<Prediction[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<Prediction | null>(null);
+  const [details, setDetails] = useState<PlaceDetails | null>(null);
+  const [nearby, setNearby] = useState<NearbyPlace[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]); // Default center
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Fetch autocomplete suggestions
+  useEffect(() => {
+    if (query.length > 2) { // Debounce: only fetch after 3 chars
+      fetch(`/api/places/autocomplete?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => setSuggestions(data.predictions || []))
+        .catch(err => console.error('Autocomplete error:', err));
+    } else {
+      setSuggestions([]);
+    }
+  }, [query]);
+
+  // Handle selecting a suggestion
+  const handleSelect = async (place: Prediction) => {
+    setSelectedPlace(place);
+    setQuery(place.description);
+    setSuggestions([]);
+
+    // Fetch details
+    const detailsRes = await fetch(`/api/places/details?place_id=${place.place_id}`);
+    const detailsData = await detailsRes.json();
+    setDetails(detailsData.details);
+
+    // Fetch nearby
+    const nearbyRes = await fetch(`/api/places/nearby?lat=${place.lat}&lon=${place.lon}&radius=5000&type=tourist_attraction`);
+    const nearbyData = await nearbyRes.json();
+    setNearby(nearbyData.places);
+
+    // Update map center
+    setMapCenter([parseFloat(place.lat), parseFloat(place.lon)]);
+  };
+
+  return (
+    <main className="p-4 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Travel Buddy</h1>
+      
+      {/* Search Input */}
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search for a destination (e.g., Paris)"
+        className="w-full p-2 border border-gray-300 rounded mb-2"
+      />
+      
+      {/* Suggestions Dropdown */}
+      {suggestions.length > 0 && (
+        <ul className="border border-gray-300 rounded bg-white max-h-40 overflow-y-auto">
+          {suggestions.map((sugg) => (
+            <li
+              key={sugg.place_id}
+              onClick={() => handleSelect(sugg)}
+              className="p-2 cursor-pointer hover:bg-gray-100"
+            >
+              {sugg.description}
+            </li>
+          ))}
+        </ul>
+      )}
+      
+      {/* Selected Place Details */}
+      {details && (
+        <div className="mt-4">
+          <h2 className="text-xl font-semibold">{details.name}</h2>
+          <p>Lat: {details.lat}, Lon: {details.lon}</p>
+          {details.address && (
+            <p>
+              Address: {details.address.road}, {details.address.city}, {details.address.country} {details.address.postcode}
+            </p>
+          )}
+          {details.opening_hours && <p>Opening Hours: {details.opening_hours}</p>}
+          {details.website && <p>Website: <a href={details.website} target="_blank" rel="noopener noreferrer">{details.website}</a></p>}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+      
+      {/* Nearby Attractions List */}
+      {nearby.length > 0 && (
+        <div className="mt-4">
+          <h2 className="text-xl font-semibold">Nearby Attractions</h2>
+          <ul className="list-disc pl-5">
+            {nearby.map((place) => (
+              <li key={place.id}>
+                {place.name} ({place.type}) - Lat: {place.lat}, Lon: {place.lon}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {/* Map */}
+      {selectedPlace && (
+        <div className="mt-4 h-96">
+          <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            {/* Marker for selected place */}
+            <Marker position={mapCenter} icon={selectedPlaceIcon}>
+              <Popup>{selectedPlace.description}</Popup>
+            </Marker>
+            {/* Markers for nearby places */}
+            {nearby.map((place) => (
+              <Marker 
+                key={place.id} 
+                position={[parseFloat(place.lat), parseFloat(place.lon)]}
+                icon={nearbyPlaceIcon}
+              >
+                <Popup>{place.name} ({place.category})</Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+      )}
+    </main>
   );
 }
