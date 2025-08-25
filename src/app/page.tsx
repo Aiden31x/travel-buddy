@@ -1,7 +1,7 @@
 'use client'; // Client-side component for interactivity
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet'; // For custom markers if needed
 
 // Fix for Leaflet marker icons in Next.js
@@ -60,6 +60,19 @@ const createCustomIcon = (color: string) => {
 
 const selectedPlaceIcon = createCustomIcon('#ef4444'); // Red
 const nearbyPlaceIcon = createCustomIcon('#3b82f6'); // Blue
+
+// RecenterMap component - moved up for better organization
+function RecenterMap({ lat, lon }: { lat: number; lon: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (lat && lon) {
+      map.setView([lat, lon], 14, { animate: true });
+    }
+  }, [lat, lon, map]);
+
+  return null;
+}
 
 export default function Home() {
   const [query, setQuery] = useState('');
@@ -166,6 +179,8 @@ export default function Home() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
+            {/* ADD THIS LINE - RecenterMap component */}
+            <RecenterMap lat={mapCenter[0]} lon={mapCenter[1]} />
             {/* Marker for selected place */}
             <Marker position={mapCenter} icon={selectedPlaceIcon}>
               <Popup>{selectedPlace.description}</Popup>
