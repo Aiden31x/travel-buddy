@@ -2,12 +2,14 @@ import { callGroq, validateRequiredFields } from "@/app/lib/groq";
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { destination, lat, lon, dates, budget, interests } = body;
-
-  // Validate inputs
-  const missing = validateRequiredFields({ destination, dates });
-  if (missing.length > 0) {
-    return new Response(JSON.stringify({ error: `Missing: ${missing.join(", ")}` }), { status: 400 });
+  const requiredFields = ["destination", "lat", "lon", "dates", "budget", "interests"];
+  const missingFields = validateRequiredFields(body, requiredFields);
+  
+  if (missingFields.length > 0) {
+    return new Response(
+      JSON.stringify({ error: `Missing fields: ${missingFields.join(", ")}` }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // 🔌 1. Fetch raw nearby data from your existing endpoint
@@ -21,10 +23,10 @@ Use the following nearby places data (from OpenStreetMap) to create a personaliz
 Make sure your output is structured and easy to use.`;
 
   const userPrompt = `
-Destination: ${destination}
-Dates: ${dates}
-Budget: ${budget || "Not specified"}
-Interests: ${interests?.join(", ") || "Not specified"}
+Destination: ${body.destination}
+Dates: ${body.dates}
+Budget: ${body.budget || "Not specified"}
+Interests: ${body.interests?.join(", ") || "Not specified"}
 
 Nearby places data:
 ${JSON.stringify(nearbyData.places, null, 2)}
