@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, Calendar, DollarSign, Sparkles, Loader } from "lucide-react";
 import { Place, Destination, Itinerary, TripRequest } from "./types";
+import BestTimeToVisit from "./BestTimeToVisit";
 
 interface Props {
   destination: Destination;
@@ -115,6 +116,13 @@ const TripForm: React.FC<Props> = ({ destination, selectedPlaces, onTripPlanned,
             )}
           </div>
         </div>
+
+        {/* Best Time to Visit */}
+        <BestTimeToVisit
+          destination={destination.name}
+          lat={destination.latitude}
+          lon={destination.longitude}
+        />
 
         {/* Days Selection */}
         <div className="space-y-3">

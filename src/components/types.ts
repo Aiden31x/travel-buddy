@@ -76,4 +76,7 @@ export interface LeafletMapRef {
   zoomOut: () => void;
   setView: (lat: number, lng: number, zoom?: number) => void;
   flyTo: (lat: number, lng: number, zoom?: number) => void;
+  setTileLayer: (layer: 'street' | 'satellite' | 'terrain') => void;
+  showHeatmap: (data: [number, number, number][]) => void;
+  hideHeatmap: () => void;
 }

@@ -10,6 +10,11 @@ import DestinationList from "@/components/DestinationList";
 import PlaceSelector from "@/components/PlaceSelector";
 import TripForm from "@/components/TripForm";
 import ItineraryView from "@/components/ItineraryView";
+import ChatWidget from "@/components/ChatWidget";
+import MapLayerToggle from "@/components/MapLayerToggle";
+import HeatmapToggle from "@/components/HeatmapToggle";
+import NaturalLanguageInput from "@/components/NaturalLanguageInput";
+import type { RouteData } from "@/components/LeafletMap";
 import { Destination, Place, Itinerary, AutocompletePlace, LeafletMapRef } from "@/components/types";
 
 export default function ExplorePage() {
@@ -21,6 +26,8 @@ export default function ExplorePage() {
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [walkingRoutes, setWalkingRoutes] = useState<RouteData[]>([]);
+  const [searchMode, setSearchMode] = useState<'manual' | 'ai'>('manual');
   const mapRef = useRef<LeafletMapRef>(null);
 
   const mapDestinations = React.useMemo(() => {
@@ -124,9 +131,31 @@ export default function ExplorePage() {
     setCurrentStep('trip');
   }, []);
 
-  const handleTripPlanned = useCallback((tripItinerary: Itinerary) => {
+  const handleTripPlanned = useCallback(async (tripItinerary: Itinerary) => {
     setItinerary(tripItinerary);
     setCurrentStep('itinerary');
+
+    // Fetch walking routes for each day
+    const routes: RouteData[] = [];
+    for (const day of tripItinerary.itinerary) {
+      if (day.places.length < 2) continue;
+      const waypoints = day.places
+        .map((p) => [parseFloat(p.lat), parseFloat(p.lon)] as [number, number])
+        .filter(([lat, lon]) => !isNaN(lat) && !isNaN(lon));
+      if (waypoints.length < 2) continue;
+      try {
+        const res = await fetch(
+          `/api/route/walking?waypoints=${waypoints.map((w) => `${w[0]},${w[1]}`).join(";")}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          routes.push({ dayNumber: day.day, coordinates: data.coordinates, distance: data.distance });
+        }
+      } catch {
+        // Non-critical — just skip the route
+      }
+    }
+    setWalkingRoutes(routes);
   }, []);
 
   const handleBackToSearch = useCallback(() => {
@@ -136,6 +165,7 @@ export default function ExplorePage() {
     setSelectedPlaces([]);
     setSelectedDestination(null);
     setItinerary(null);
+    setWalkingRoutes([]);
     setError(null);
   }, []);
 
@@ -169,12 +199,34 @@ export default function ExplorePage() {
     }
   }, []);
 
+  const handleNLParsed = useCallback(async (result: { destination: string | null; days: number; budget: 'low' | 'moderate' | 'luxury'; interests: string[] }) => {
+    if (!result.destination) return;
+
+    // Geocode the destination via autocomplete
+    setLoading(true);
+    try {
+      const geoRes = await fetch(`/api/places/autocomplete?q=${encodeURIComponent(result.destination)}`);
+      const geoData = await geoRes.json();
+      if (!geoData.predictions?.length) {
+        setError(`Could not find "${result.destination}" on the map`);
+        return;
+      }
+      const place = geoData.predictions[0];
+      // Trigger the normal flow from here
+      await handleDestinationSelect(place);
+      setSearchMode('manual');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to geocode destination');
+    } finally {
+      setLoading(false);
+    }
+  }, [handleDestinationSelect]);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
       <Header />
 
-      <div className="relative flex-1">
-        <div className="relative h-screen">
+      <div className="relative flex-1 overflow-hidden">
           <LeafletMap
             ref={mapRef}
             destinations={mapDestinations}
@@ -182,22 +234,59 @@ export default function ExplorePage() {
             onDestinationSelect={() => { }}
             center={selectedDestination ? [selectedDestination.latitude, selectedDestination.longitude] : [37.7749, -122.4194]}
             zoom={12}
+            routes={walkingRoutes}
           />
 
-          <SearchBar
-            onSearchResults={handleSearchResults}
-            onLoading={setLoading}
-          />
+          {/* Search area: toggle + input */}
+          {currentStep === 'search' && (
+            <div className="absolute top-6 left-6 z-20">
+              {/* Mode toggle pills */}
+              {searchResults.length === 0 && (
+                <div className="flex mb-2 bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden w-fit">
+                  <button
+                    onClick={() => setSearchMode('manual')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${searchMode === 'manual' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  >
+                    Search
+                  </button>
+                  <button
+                    onClick={() => setSearchMode('ai')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${searchMode === 'ai' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  >
+                    AI Planning
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
+          {currentStep === 'search' && (
+            searchMode === 'manual' ? (
+              <SearchBar
+                onSearchResults={handleSearchResults}
+                onLoading={setLoading}
+              />
+            ) : (
+              <NaturalLanguageInput onParsed={handleNLParsed} />
+            )
+          )}
+
+          {/* Bottom-left: map layer controls */}
+          <div className="absolute bottom-6 left-6 z-20 flex items-center gap-2">
+            <MapLayerToggle onLayerChange={(layer) => mapRef.current?.setTileLayer(layer)} />
+            <HeatmapToggle itinerary={itinerary} mapRef={mapRef} />
+          </div>
+
+          {/* Bottom-right: zoom/locate controls */}
           <MapControls
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onLocate={handleLocate}
           />
 
-          {/* Info overlays */}
+          {/* Info overlay — guides user to the right panel */}
           <AnimatedPanel show={currentStep === 'places' && nearbyPlaces.length > 0} direction="left">
-            <div className="absolute top-20 left-6 z-20 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3">
+            <div className="absolute top-6 left-6 z-20 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 max-w-xs">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -205,14 +294,14 @@ export default function ExplorePage() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Select the places you want to visit
+                Use the panel on the right to pick the places you want, then plan your trip &rarr;
               </p>
             </div>
           </AnimatedPanel>
 
           {/* Error Display */}
           <AnimatedPanel show={!!error} direction="up">
-            <div className="absolute top-20 left-6 right-6 z-20 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg shadow-lg">
+            <div className="absolute top-32 left-6 right-6 z-20 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg shadow-lg">
               <div className="flex justify-between items-center">
                 <span>{error}</span>
                 <button
@@ -278,8 +367,9 @@ export default function ExplorePage() {
               />
             )}
           </AnimatedPanel>
-        </div>
       </div>
+
+      <ChatWidget destination={selectedDestination} selectedPlaces={selectedPlaces} />
     </div>
   );
 }

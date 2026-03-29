@@ -2,8 +2,12 @@ import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Calendar, MapPin, Clock, ChevronDown, ChevronUp, Save, Check, Download, CalendarPlus } from "lucide-react";
-import { Itinerary, Destination, Place } from "./types";
+import { ArrowLeft, Calendar, MapPin, Clock, ChevronDown, ChevronUp, Save, Check, Download, CalendarPlus, Route, Backpack, Globe2, BarChart3 } from "lucide-react";
+import { Itinerary, ItineraryDay, Activity, Destination, Place } from "./types";
+import { optimizeRoute, totalDistance, type Waypoint } from "@/app/lib/haversine";
+import PackingListModal from "./PackingList";
+import CulturalTipsPanel from "./CulturalTips";
+import TripAnalyticsPanel from "./TripAnalytics";
 
 interface Props {
   itinerary: Itinerary;
@@ -19,6 +23,56 @@ const ItineraryView: React.FC<Props> = ({ itinerary, destination, selectedPlaces
   const [expandedDays, setExpandedDays] = useState<number[]>([1]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [localItinerary, setLocalItinerary] = useState<ItineraryDay[]>(itinerary.itinerary);
+  const [showPackingList, setShowPackingList] = useState(false);
+  const [showCulturalTips, setShowCulturalTips] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
+  const activityToWaypoint = (p: Activity): Waypoint => ({
+    name: p.name,
+    lat: parseFloat(p.lat),
+    lon: parseFloat(p.lon),
+  });
+
+  const handleOptimizeDay = (dayNum: number) => {
+    setLocalItinerary((prev) => {
+      const updated = prev.map((day) => {
+        if (day.day !== dayNum || day.places.length < 3) return day;
+        const waypoints = day.places.map(activityToWaypoint);
+        const before = totalDistance(waypoints);
+        const optimized = optimizeRoute(waypoints);
+        const after = totalDistance(optimized);
+
+        const newPlaces = optimized.map((wp) => day.places.find((p) => p.name === wp.name)!);
+        const saved = ((before - after) / before) * 100;
+        toast.success(`Day ${dayNum}: ${before.toFixed(1)} km → ${after.toFixed(1)} km (${saved.toFixed(0)}% shorter)`);
+        return { ...day, places: newPlaces };
+      });
+      return updated;
+    });
+  };
+
+  const handleOptimizeAll = () => {
+    let totalBefore = 0;
+    let totalAfter = 0;
+    setLocalItinerary((prev) =>
+      prev.map((day) => {
+        if (day.places.length < 3) return day;
+        const waypoints = day.places.map(activityToWaypoint);
+        const before = totalDistance(waypoints);
+        const optimized = optimizeRoute(waypoints);
+        const after = totalDistance(optimized);
+        totalBefore += before;
+        totalAfter += after;
+        const newPlaces = optimized.map((wp) => day.places.find((p) => p.name === wp.name)!);
+        return { ...day, places: newPlaces };
+      })
+    );
+    if (totalBefore > 0) {
+      const saved = ((totalBefore - totalAfter) / totalBefore) * 100;
+      toast.success(`Optimized: ${totalBefore.toFixed(1)} km → ${totalAfter.toFixed(1)} km (${saved.toFixed(0)}% shorter)`);
+    }
+  };
 
   const handleSaveTrip = async () => {
     if (!session?.user || !destination) return;
@@ -108,9 +162,9 @@ const ItineraryView: React.FC<Props> = ({ itinerary, destination, selectedPlaces
 
       {/* Itinerary Content */}
       <div className="max-h-80 overflow-y-auto">
-        {itinerary.itinerary.length > 0 ? (
+        {localItinerary.length > 0 ? (
           <div className="p-4 space-y-4">
-            {itinerary.itinerary.map((day) => {
+            {localItinerary.map((day) => {
               const isExpanded = expandedDays.includes(day.day);
               return (
                 <div
@@ -143,6 +197,15 @@ const ItineraryView: React.FC<Props> = ({ itinerary, destination, selectedPlaces
 
                   {isExpanded && (
                     <div className="p-4 space-y-3">
+                      {day.places.length >= 3 && (
+                        <button
+                          onClick={() => handleOptimizeDay(day.day)}
+                          className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                        >
+                          <Route className="w-3 h-3" />
+                          Optimize walking order
+                        </button>
+                      )}
                       {day.places.length > 0 ? (
                         <div className="space-y-2">
                           {day.places.map((place, index) => (
@@ -199,8 +262,60 @@ const ItineraryView: React.FC<Props> = ({ itinerary, destination, selectedPlaces
         )}
       </div>
 
+      {/* Modals */}
+      {showPackingList && (
+        <PackingListModal
+          itinerary={{ ...itinerary, itinerary: localItinerary }}
+          onClose={() => setShowPackingList(false)}
+        />
+      )}
+      {showCulturalTips && destination && (
+        <CulturalTipsPanel
+          destination={destination.name}
+          onClose={() => setShowCulturalTips(false)}
+        />
+      )}
+      {showAnalytics && (
+        <TripAnalyticsPanel
+          itinerary={{ ...itinerary, itinerary: localItinerary }}
+          onClose={() => setShowAnalytics(false)}
+        />
+      )}
+
       {/* Footer Actions */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-3">
+        {/* Feature buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleOptimizeAll}
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+          >
+            <Route className="w-3 h-3" />
+            Optimize
+          </button>
+          <button
+            onClick={() => setShowPackingList(true)}
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+          >
+            <Backpack className="w-3 h-3" />
+            Packing
+          </button>
+          <button
+            onClick={() => setShowCulturalTips(true)}
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+          >
+            <Globe2 className="w-3 h-3" />
+            Tips
+          </button>
+          <button
+            onClick={() => setShowAnalytics(true)}
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+          >
+            <BarChart3 className="w-3 h-3" />
+            Stats
+          </button>
+        </div>
+
         {/* Export buttons */}
         <div className="flex gap-2">
           <button
@@ -246,11 +361,11 @@ const ItineraryView: React.FC<Props> = ({ itinerary, destination, selectedPlaces
         )}
         <div className="flex items-center justify-between">
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {itinerary.itinerary.length} day{itinerary.itinerary.length !== 1 ? 's' : ''} planned
+            {localItinerary.length} day{localItinerary.length !== 1 ? 's' : ''} planned
           </div>
           <div className="flex space-x-2">
             <button
-              onClick={() => setExpandedDays(itinerary.itinerary.map(d => d.day))}
+              onClick={() => setExpandedDays(localItinerary.map(d => d.day))}
               className="px-3 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               Expand All

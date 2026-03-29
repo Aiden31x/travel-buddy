@@ -75,7 +75,7 @@ const SearchBar: React.FC<Props> = ({ onSearchResults, onLoading }) => {
   };
 
   return (
-    <div className="absolute top-6 left-6 z-10">
+    <div className="absolute top-16 left-6 z-10">
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input
