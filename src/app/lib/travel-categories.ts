@@ -368,24 +368,32 @@ export interface CategoryConfig {
   }
   
   export function buildOverpassQuery(categoryId: string, lat: number, lon: number, radius: number): string {
-    const category = getCategoryById(categoryId);
-    if (!category) {
-      throw new Error(`Category '${categoryId}' not found`);
+    return buildMultiCategoryOverpassQuery([categoryId], lat, lon, radius);
+  }
+
+  export function buildMultiCategoryOverpassQuery(categoryIds: string[], lat: number, lon: number, radius: number, limit = 50): string {
+    const allQueries: string[] = [];
+
+    for (const categoryId of categoryIds) {
+      const category = getCategoryById(categoryId);
+      if (!category) continue;
+
+      for (const osmQuery of category.osmQueries) {
+        const [key, value] = osmQuery.split('=');
+        allQueries.push(
+          `node["${key}"="${value}"](around:${radius},${lat},${lon});`,
+          `way["${key}"="${value}"](around:${radius},${lat},${lon});`
+        );
+      }
     }
-  
-    const queries = category.osmQueries.map(osmQuery => {
-      return `
-        node["${osmQuery.split('=')[0]}"="${osmQuery.split('=')[1]}"](around:${radius},${lat},${lon});
-        way["${osmQuery.split('=')[0]}"="${osmQuery.split('=')[1]}"](around:${radius},${lat},${lon});
-        relation["${osmQuery.split('=')[0]}"="${osmQuery.split('=')[1]}"](around:${radius},${lat},${lon});
-      `.trim();
-    }).join('\n');
-  
-    return `
-      [out:json][timeout:30][maxsize:1073741824];
-      (
-        ${queries}
-      );
-      out center meta 50;
-    `.trim();
+
+    if (allQueries.length === 0) {
+      throw new Error(`No valid categories found in: ${categoryIds.join(', ')}`);
+    }
+
+    return `[out:json][timeout:20][maxsize:10485760];
+(
+  ${allQueries.join('\n  ')}
+);
+out center body ${limit};`;
   }

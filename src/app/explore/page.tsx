@@ -78,23 +78,17 @@ export default function ExplorePage() {
 
     setLoading(true);
     try {
-      const categories = ['tourist_attractions', 'restaurants', 'malls', 'pubs_bars'];
-      const allPlaces: Place[] = [];
+      const categories = 'tourist_attractions,restaurants,malls,pubs_bars';
+      const response = await fetch(
+        `/api/places/nearby?lat=${destination.latitude}&lon=${destination.longitude}&categories=${categories}&limit=100`
+      );
 
-      for (const category of categories) {
-        const response = await fetch(
-          `/api/places/nearby?lat=${destination.latitude}&lon=${destination.longitude}&category=${category}`
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${category} places`);
-        }
-
-        const data = await response.json();
-        if (data.places) {
-          allPlaces.push(...data.places);
-        }
+      if (!response.ok) {
+        throw new Error('Failed to fetch nearby places');
       }
+
+      const data = await response.json();
+      const allPlaces: Place[] = data.places || [];
 
       setNearbyPlaces(allPlaces);
       setCurrentStep('places');

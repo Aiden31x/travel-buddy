@@ -78,12 +78,13 @@ export async function GET(request: NextRequest) {
     
     const response = await fetch(nominatimUrl, {
       headers: {
-        'User-Agent': 'TravelBuddy/1.0 (travel.buddy.app@example.com)', // Updated email
+        'User-Agent': `TravelBuddy/1.0 (${process.env.NOMINATIM_CONTACT_EMAIL ?? 'your-real-email@example.com'})`,
+        'Referer': process.env.NEXTAUTH_URL ?? 'http://localhost:3000',
         'Accept': 'application/json',
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
     });
 
     lastRequestTime = Date.now();

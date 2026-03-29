@@ -34,8 +34,8 @@ export const createTripSchema = z.object({
     .array(
       z.object({
         name: z.string(),
-        lat: z.number(),
-        lon: z.number(),
+        lat: z.coerce.number(),
+        lon: z.coerce.number(),
         type: z.string().optional(),
         category: z.string().optional(),
         address: z.string().optional(),
