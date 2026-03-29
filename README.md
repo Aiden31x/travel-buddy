@@ -5,12 +5,16 @@ An AI-powered travel planning app that helps you discover destinations, curate p
 ## Tech Stack
 
 - **Framework:** Next.js 15 (App Router) + React 19 + TypeScript
-- **Styling:** Tailwind CSS v4
+- **Styling:** Tailwind CSS v4 (dark mode support)
 - **Database:** PostgreSQL (Neon) + Prisma ORM
 - **Auth:** NextAuth.js (Google & GitHub OAuth)
 - **AI:** Groq (LLaMA 3 70B) for itinerary generation
 - **Maps:** Leaflet with OpenStreetMap tiles
 - **Geocoding:** Nominatim + Overpass API (OpenStreetMap)
+- **Weather:** Open-Meteo (free, no API key required)
+- **Animations:** Framer Motion
+- **Notifications:** Sonner toast system
+- **Export:** jsPDF (PDF) + ICS (calendar)
 - **Validation:** Zod
 - **CI:** GitHub Actions (lint, typecheck, build)
 
@@ -57,9 +61,18 @@ flowchart LR
 - **User Auth** — Google & GitHub OAuth via NextAuth.js
 - **Save & Share Trips** — Persist itineraries to Postgres, share via public URLs
 - **Trip Dashboard** — View, manage, and delete saved trips
-- **Responsive UI** — Clean, modern design with Tailwind CSS
-- **Security Headers** — X-Frame-Options, CSP, Referrer-Policy
+- **Weather Forecast** — Open-Meteo integration shows weather for your destination
+- **PDF Export** — Download itineraries as formatted PDF documents
+- **Calendar Export** — Generate .ics files to add trips to Google/Apple Calendar
+- **Dark Mode** — System-aware theme toggle with manual override
+- **Animated Transitions** — Framer Motion panels for smooth step-by-step flow
+- **Toast Notifications** — Sonner-powered feedback for save, share, export actions
+- **Loading Skeletons** — Polished loading states throughout the app
+- **Dynamic OG Tags** — Public trips generate social media preview cards
+- **Responsive UI** — Works on desktop and mobile
+- **Security Headers** — X-Frame-Options, Referrer-Policy, Permissions-Policy
 - **Zod Validation** — Schema validation on API inputs
+- **Error Boundaries** — Graceful error and 404 handling
 - **CI Pipeline** — Automated lint, typecheck, and build on every push
 
 ## Getting Started
