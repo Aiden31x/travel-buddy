@@ -42,7 +42,23 @@ const TAG_TO_CATEGORY: Record<string, Record<string, string>> = {
   aeroway: { aerodrome: 'airports' },
 };
 
-function classifyElement(tags: Record<string, string>): { type: string; category: string } {
+interface OverpassTagRecord {
+  [key: string]: string | undefined;
+}
+
+interface OverpassElement {
+  id: number;
+  lat?: number;
+  lon?: number;
+  center?: { lat?: number; lon?: number };
+  tags?: OverpassTagRecord;
+}
+
+interface OverpassResponse {
+  elements?: OverpassElement[];
+}
+
+function classifyElement(tags: OverpassTagRecord): { type: string; category: string } {
   for (const [tagKey, valueMap] of Object.entries(TAG_TO_CATEGORY)) {
     const tagValue = tags[tagKey];
     if (tagValue && valueMap[tagValue]) {
@@ -136,16 +152,16 @@ export async function GET(request: NextRequest) {
       throw lastError ?? new Error('All Overpass servers unavailable');
     }
 
-    const data = (await response.json()) as any;
+    const data = (await response.json()) as OverpassResponse;
 
     const places: NearbyPlace[] = (data.elements || [])
-      .filter((element: any) => {
+      .filter((element: OverpassElement) => {
         const hasCoords = (element.lat && element.lon) || (element.center?.lat && element.center?.lon);
         const hasName = element.tags?.name;
         return hasCoords && hasName;
       })
-      .map((element: any) => {
-        const tags = element.tags || {};
+      .map((element: OverpassElement) => {
+        const tags: OverpassTagRecord = element.tags || {};
         const { type: mainType, category: detectedCategory } = classifyElement(tags);
 
         const subcategory = tags.cuisine || tags.shop || tags.historic || tags.tourism || '';
@@ -161,8 +177,8 @@ export async function GET(request: NextRequest) {
         return {
           id: element.id.toString(),
           name: tags.name || tags.operator || `Unnamed ${mainType}`,
-          lat: parseFloat(element.lat || element.center?.lat || 0),
-          lon: parseFloat(element.lon || element.center?.lon || 0),
+          lat: Number(element.lat ?? element.center?.lat ?? 0),
+          lon: Number(element.lon ?? element.center?.lon ?? 0),
           type: mainType,
           category: detectedCategory,
           subcategory: subcategory || undefined,

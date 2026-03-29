@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     let tripRequest: TripPlanRequest;
     try {
       tripRequest = await request.json();
-    } catch (error) {
+    } catch {
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body' 
       } as ErrorResponse), {
@@ -331,8 +331,7 @@ Important: Use the EXACT place names and coordinates I provided above.`;
     });
 
   } catch (error) {
-    const generationTime = Date.now() - startTime;
-    console.error('❌ Trip planning error:', error);
+    console.error('❌ Trip planning error:', error, `(after ${Date.now() - startTime}ms)`);
     
     let errorMessage = 'Internal server error during itinerary generation';
     let details = undefined;

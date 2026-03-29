@@ -35,8 +35,27 @@ interface ErrorResponse {
 const VALID_BUDGETS = ['low', 'moderate', 'luxury'] as const;
 type Budget = typeof VALID_BUDGETS[number];
 
+interface Timestamped<T> {
+  data: T;
+  timestamp: number;
+}
+
+interface NearbyPlaceMatch {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+interface AutocompletePrediction {
+  place_id: string;
+  description: string;
+  lat: string;
+  lon: string;
+}
+
 // Cache for validation results to avoid repeated API calls
-const validationCache = new Map<string, any>();
+const validationCache = new Map<string, Timestamped<unknown>>();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 export async function POST(request: NextRequest) {
@@ -45,7 +64,7 @@ export async function POST(request: NextRequest) {
     let body: TripInitRequest;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body' 
       } as ErrorResponse), {
@@ -90,12 +109,12 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Validate destination exists using autocomplete
     const destinationCacheKey = `dest_${destination.toLowerCase().trim()}`;
-    let destinationResult = null;
+    let destinationResult: AutocompletePrediction | null = null;
 
     if (validationCache.has(destinationCacheKey)) {
-      const cached = validationCache.get(destinationCacheKey);
+      const cached = validationCache.get(destinationCacheKey)!;
       if (Date.now() - cached.timestamp < CACHE_DURATION) {
-        destinationResult = cached.data;
+        destinationResult = cached.data as AutocompletePrediction;
       }
     }
 
@@ -135,7 +154,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Use the first (most relevant) prediction
-      destinationResult = predictions[0];
+      destinationResult = predictions[0] as AutocompletePrediction;
       
       // Cache the result
       validationCache.set(destinationCacheKey, {
@@ -148,12 +167,12 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Validate places exist using nearby search
     const placesCacheKey = `places_${destinationResult.lat}_${destinationResult.lon}`;
-    let nearbyPlaces = null;
+    let nearbyPlaces: NearbyPlaceMatch[] | null = null;
 
     if (validationCache.has(placesCacheKey)) {
-      const cached = validationCache.get(placesCacheKey);
+      const cached = validationCache.get(placesCacheKey)!;
       if (Date.now() - cached.timestamp < CACHE_DURATION) {
-        nearbyPlaces = cached.data;
+        nearbyPlaces = cached.data as NearbyPlaceMatch[];
       }
     }
 
@@ -193,7 +212,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    console.log(`🔍 Found ${nearbyPlaces.length} nearby places for validation`);
+    const placesForMatching = nearbyPlaces as NearbyPlaceMatch[];
+
+    console.log(`🔍 Found ${placesForMatching.length} nearby places for validation`);
 
     // Step 3: Match requested places with nearby results with improved fuzzy matching
     const validatedPlaces = [];
@@ -203,7 +224,7 @@ export async function POST(request: NextRequest) {
       const normalizedRequested = requestedPlace.toLowerCase().trim();
       
       // Enhanced fuzzy matching with multiple strategies
-      const matchedPlace = nearbyPlaces.find((nearby: any) => {
+      const matchedPlace = placesForMatching.find((nearby) => {
         const normalizedNearby = nearby.name.toLowerCase().trim();
         
         // Strategy 1: Exact match
@@ -252,8 +273,8 @@ export async function POST(request: NextRequest) {
         validatedPlaces.push({
           name: matchedPlace.name,
           id: matchedPlace.id,
-          lat: matchedPlace.lat,
-          lon: matchedPlace.lon,
+          lat: String(matchedPlace.lat),
+          lon: String(matchedPlace.lon),
         });
         console.log(`✅ Validated place: "${requestedPlace}" → "${matchedPlace.name}"`);
       } else {
@@ -261,7 +282,7 @@ export async function POST(request: NextRequest) {
         console.log(`❌ Invalid place: "${requestedPlace}"`);
         
         // Log nearby place names for debugging
-        console.log(`🔍 Available nearby places:`, nearbyPlaces.slice(0, 10).map((p: any) => p.name));
+        console.log(`🔍 Available nearby places:`, placesForMatching.slice(0, 10).map((p) => p.name));
       }
     }
 

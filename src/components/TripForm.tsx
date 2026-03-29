@@ -101,7 +101,7 @@ const TripForm: React.FC<Props> = ({ destination, selectedPlaces, onTripPlanned,
             {selectedPlaces.length} place{selectedPlaces.length !== 1 ? 's' : ''} selected:
           </p>
           <div className="flex flex-wrap gap-1">
-            {selectedPlaces.slice(0, 3).map((place, index) => (
+            {selectedPlaces.slice(0, 3).map((place) => (
               <span
                 key={place.id}
                 className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"

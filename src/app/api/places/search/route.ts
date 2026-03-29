@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     let searchRequest: PlaceSearchRequest;
     try {
       searchRequest = await request.json();
-    } catch (error) {
+    } catch {
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body' 
       } as ErrorResponse), {
@@ -271,8 +271,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    const generationTime = Date.now() - startTime;
-    console.error('❌ Place search error:', error);
+    console.error('❌ Place search error:', error, `(after ${Date.now() - startTime}ms)`);
     
     let errorMessage = 'Internal server error during place search';
     let details = undefined;

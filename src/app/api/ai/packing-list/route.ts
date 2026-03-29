@@ -14,7 +14,9 @@ export async function POST(request: NextRequest) {
     }
 
     const weatherInfo = weather?.length
-      ? `Weather forecast: ${weather.map((w: any) => `${w.date}: ${w.description}, ${w.tempMin}°-${w.tempMax}°C`).join("; ")}`
+      ? `Weather forecast: ${(weather as { date: string; description: string; tempMin: number; tempMax: number }[])
+          .map((w) => `${w.date}: ${w.description}, ${w.tempMin}°-${w.tempMax}°C`)
+          .join("; ")}`
       : "No weather data available.";
 
     const activitiesInfo = activities?.length

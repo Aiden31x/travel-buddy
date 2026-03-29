@@ -47,11 +47,25 @@ interface ErrorResponse {
   details?: string;
 }
 
+interface ResolvedCoords {
+  lat: string;
+  lon: string;
+  place_id?: string;
+  address?: string;
+  type?: string;
+}
+
+interface NearbyPlaceForResolve {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  address?: string;
+  type?: string;
+}
+
 // Cache for place lookups to avoid repeated API calls
-const coordinateCache = new Map<string, { 
-  data: any; 
-  timestamp: number; 
-}>();
+const coordinateCache = new Map<string, { data: ResolvedCoords; timestamp: number }>();
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 // Helper function to find place coordinates
@@ -60,7 +74,7 @@ async function resolveCoordinates(
   destinationLat: string, 
   destinationLon: string,
   request: NextRequest
-): Promise<{ lat: string; lon: string; place_id?: string; address?: string; type?: string } | null> {
+): Promise<ResolvedCoords | null> {
   
   const cacheKey = `${placeName.toLowerCase()}_${destinationLat}_${destinationLon}`;
   
@@ -94,14 +108,14 @@ async function resolveCoordinates(
       // Find exact or fuzzy match in nearby results
       const normalizedSearchName = placeName.toLowerCase().trim();
       
-      const exactMatch = nearbyPlaces.find((place: any) => 
+      const exactMatch = (nearbyPlaces as NearbyPlaceForResolve[]).find((place) => 
         place.name.toLowerCase().trim() === normalizedSearchName
       );
 
       if (exactMatch) {
-        const result = {
-          lat: exactMatch.lat,
-          lon: exactMatch.lon,
+        const result: ResolvedCoords = {
+          lat: String(exactMatch.lat),
+          lon: String(exactMatch.lon),
           place_id: exactMatch.id,
           address: exactMatch.address,
           type: exactMatch.type,
@@ -111,16 +125,16 @@ async function resolveCoordinates(
       }
 
       // Try fuzzy match if exact match not found
-      const fuzzyMatch = nearbyPlaces.find((place: any) => {
+      const fuzzyMatch = (nearbyPlaces as NearbyPlaceForResolve[]).find((place) => {
         const placeNameLower = place.name.toLowerCase();
         return placeNameLower.includes(normalizedSearchName) || 
                normalizedSearchName.includes(placeNameLower);
       });
 
       if (fuzzyMatch) {
-        const result = {
-          lat: fuzzyMatch.lat,
-          lon: fuzzyMatch.lon,
+        const result: ResolvedCoords = {
+          lat: String(fuzzyMatch.lat),
+          lon: String(fuzzyMatch.lon),
           place_id: fuzzyMatch.id,
           address: fuzzyMatch.address,
           type: fuzzyMatch.type,
@@ -146,10 +160,10 @@ async function resolveCoordinates(
       const predictions = autocompleteData.predictions || [];
 
       if (predictions.length > 0) {
-        const bestMatch = predictions[0];
-        const result = {
-          lat: bestMatch.lat,
-          lon: bestMatch.lon,
+        const bestMatch = predictions[0] as { lat: string; lon: string; place_id?: string; type?: string };
+        const result: ResolvedCoords = {
+          lat: String(bestMatch.lat),
+          lon: String(bestMatch.lon),
           place_id: bestMatch.place_id,
           type: bestMatch.type,
         };
@@ -176,7 +190,7 @@ export async function POST(request: NextRequest) {
     let itineraryData: TripItinerary;
     try {
       itineraryData = await request.json();
-    } catch (error) {
+    } catch {
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body' 
       } as ErrorResponse), {
@@ -306,8 +320,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    const resolutionTime = Date.now() - startTime;
-    console.error('❌ Trip resolution error:', error);
+    console.error('❌ Trip resolution error:', error, `(after ${Date.now() - startTime}ms)`);
     
     let errorMessage = 'Internal server error during coordinate resolution';
     let details = undefined;

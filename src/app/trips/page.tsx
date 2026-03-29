@@ -35,7 +35,7 @@ function TripCardSkeleton() {
 }
 
 export default function TripsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Search, Loader } from "lucide-react";
 import { AutocompletePlace } from "./types";
 
@@ -13,46 +13,47 @@ const SearchBar: React.FC<Props> = ({ onSearchResults, onLoading }) => {
   const [error, setError] = useState<string | null>(null);
   const [lastSearchQuery, setLastSearchQuery] = useState("");
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce(async (searchQuery: string) => {
-      if (!searchQuery.trim() || searchQuery.trim().length < 2) {
-        onSearchResults([]);
-        return;
-      }
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((searchQuery: string) => {
+        void (async () => {
+          if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+            onSearchResults([]);
+            return;
+          }
 
-      // Don't search if it's the same query
-      if (searchQuery.trim() === lastSearchQuery.trim()) {
-        return;
-      }
+          if (searchQuery.trim() === lastSearchQuery.trim()) {
+            return;
+          }
 
-      setIsSearching(true);
-      onLoading?.(true);
-      setError(null);
-      setLastSearchQuery(searchQuery.trim());
+          setIsSearching(true);
+          onLoading?.(true);
+          setError(null);
+          setLastSearchQuery(searchQuery.trim());
 
-      try {
-        const response = await fetch(`/api/places/autocomplete?q=${encodeURIComponent(searchQuery)}`);
+          try {
+            const response = await fetch(`/api/places/autocomplete?q=${encodeURIComponent(searchQuery)}`);
 
-        if (!response.ok) {
-          throw new Error(`Search failed: ${response.status}`);
-        }
+            if (!response.ok) {
+              throw new Error(`Search failed: ${response.status}`);
+            }
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (data.error) {
-          throw new Error(data.error);
-        }
+            if (data.error) {
+              throw new Error(data.error);
+            }
 
-        onSearchResults(data.predictions || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Search failed');
-        onSearchResults([]);
-      } finally {
-        setIsSearching(false);
-        onLoading?.(false);
-      }
-    }, 500), // Increased debounce time to reduce API calls
+            onSearchResults(data.predictions || []);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Search failed');
+            onSearchResults([]);
+          } finally {
+            setIsSearching(false);
+            onLoading?.(false);
+          }
+        })();
+      }, 500),
     [onSearchResults, onLoading, lastSearchQuery]
   );
 
@@ -109,13 +110,12 @@ const SearchBar: React.FC<Props> = ({ onSearchResults, onLoading }) => {
   );
 };
 
-// Debounce utility function
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
+function debounce<TArgs extends unknown[]>(
+  func: (...args: TArgs) => void,
   wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
+): (...args: TArgs) => void {
+  let timeout: ReturnType<typeof setTimeout>;
+  return (...args: TArgs) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };

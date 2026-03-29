@@ -110,13 +110,15 @@ interface GroqChatMessage {
    * @returns Array of missing fields (empty if all present)
    */
   export function validateRequiredFields(
-    body: any,
+    body: object,
     requiredFields: string[]
   ): string[] {
+    const record = body as Record<string, unknown>;
     const missing: string[] = [];
     
     for (const field of requiredFields) {
-      if (!body[field] || (Array.isArray(body[field]) && body[field].length === 0)) {
+      const value = record[field];
+      if (!value || (Array.isArray(value) && value.length === 0)) {
         missing.push(field);
       }
     }

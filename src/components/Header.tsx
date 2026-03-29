@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { User, LogOut } from "lucide-react";
@@ -53,9 +54,11 @@ const Header: React.FC = () => {
                 {session.user.name}
               </span>
               {session.user.image ? (
-                <img
+                <Image
                   src={session.user.image}
                   alt=""
+                  width={32}
+                  height={32}
                   className="w-8 h-8 rounded-full"
                 />
               ) : (
