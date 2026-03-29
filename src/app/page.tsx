@@ -1,328 +1,115 @@
-"use client";
-
-import React, { useState, useRef, useCallback } from "react";
+import Link from "next/link";
+import { MapPin, Sparkles, Globe, Calendar } from "lucide-react";
 import Header from "@/components/Header";
-import LeafletMap from "@/components/LeafletMap";
-import SearchBar from "@/components/SearchBar";
-import MapControls from "@/components/Mapcontrols";
-import DestinationCard from "@/components/DestinationCard";
-import DestinationList from "@/components/DestinationList";
-import PlaceSelector from "@/components/PlaceSelector";
-import TripForm from "@/components/TripForm";
-import ItineraryView from "@/components/ItineraryView";
-import { Destination, Place, Itinerary, AutocompletePlace, LeafletMapRef } from "@/components/types";
 
-export default function Home() {
-  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
-  const [searchResults, setSearchResults] = useState<AutocompletePlace[]>([]);
-  const [nearbyPlaces, setNearbyPlaces] = useState<Place[]>([]);
-  const [selectedPlaces, setSelectedPlaces] = useState<Place[]>([]);
-  const [currentStep, setCurrentStep] = useState<'search' | 'places' | 'trip' | 'itinerary'>('search');
-  const [itinerary, setItinerary] = useState<Itinerary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const mapRef = useRef<LeafletMapRef>(null);
-
-  // Memoize the destinations array to prevent unnecessary re-renders
-  const mapDestinations = React.useMemo(() => {
-    // Show both the selected destination AND all nearby places as map pins
-    const allDestinations: Destination[] = [];
-
-    // Add the selected destination if we have one
-    if (selectedDestination) {
-      allDestinations.push(selectedDestination);
-    }
-
-    // Add all nearby places as destinations for the map
-    if (nearbyPlaces.length > 0) {
-      const nearbyDestinations: Destination[] = nearbyPlaces.map(place => ({
-        id: parseInt(place.id),
-        name: place.name,
-        type: place.type || 'place',
-        description: place.name,
-        weather: null,
-        about: null,
-        rating: 0,
-        image: null,
-        latitude: place.lat,
-        longitude: place.lon
-      }));
-
-      allDestinations.push(...nearbyDestinations);
-    }
-
-    return allDestinations;
-  }, [selectedDestination, nearbyPlaces]);
-
-  const handleSearchResults = useCallback((results: AutocompletePlace[]) => {
-    setSearchResults(results);
-    setCurrentStep('search');
-    setError(null);
-  }, []);
-
-  const handleDestinationSelect = useCallback(async (autocompletePlace: AutocompletePlace) => {
-    const destination: Destination = {
-      id: Date.now(),
-      name: autocompletePlace.description.split(',')[0],
-      type: "destination",
-      description: `Selected destination: ${autocompletePlace.description}`,
-      weather: null,
-      about: null,
-      rating: 0,
-      image: null,
-      latitude: parseFloat(autocompletePlace.lat),
-      longitude: parseFloat(autocompletePlace.lon)
-    };
-
-    setSelectedDestination(destination);
-
-    // Pan map to selected destination
-    if (mapRef.current) {
-      mapRef.current.flyTo(destination.latitude, destination.longitude, 12);
-    }
-
-    // Fetch nearby places
-    setLoading(true);
-    try {
-      // Use the correct category IDs that exist in the backend
-      const categories = ['tourist_attractions', 'restaurants', 'malls', 'pubs_bars'];
-      const allPlaces: Place[] = [];
-
-      for (const category of categories) {
-        const response = await fetch(
-          `/api/places/nearby?lat=${destination.latitude}&lon=${destination.longitude}&category=${category}`
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${category} places`);
-        }
-
-        const data = await response.json();
-        if (data.places) {
-          allPlaces.push(...data.places);
-        }
-      }
-
-      setNearbyPlaces(allPlaces);
-      setCurrentStep('places');
-
-      // Auto-fit map to show all places
-      if (mapRef.current && allPlaces.length > 0) {
-        // Calculate bounds to include destination and all nearby places
-        const bounds = [
-          [destination.latitude, destination.longitude],
-          ...allPlaces.map(place => [place.lat, place.lon])
-        ];
-
-        // Add a small buffer around the bounds
-        const latBuffer = 0.01; // About 1km buffer
-        const lonBuffer = 0.01;
-
-        const minLat = Math.min(...bounds.map(([lat]) => lat)) - latBuffer;
-        const maxLat = Math.max(...bounds.map(([lat]) => lat)) + latBuffer;
-        const minLon = Math.min(...bounds.map(([, lon]) => lon)) - lonBuffer;
-        const maxLon = Math.max(...bounds.map(([, lon]) => lon)) + lonBuffer;
-
-        // Fly to the center of all places with appropriate zoom
-        const centerLat = (minLat + maxLat) / 2;
-        const centerLon = (minLon + maxLon) / 2;
-
-        mapRef.current.flyTo(centerLat, centerLon, 13);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch nearby places');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const handlePlacesSelected = useCallback((places: Place[]) => {
-    setSelectedPlaces(places);
-    setCurrentStep('trip');
-  }, []);
-
-  const handleTripPlanned = useCallback((tripItinerary: Itinerary) => {
-    setItinerary(tripItinerary);
-    setCurrentStep('itinerary');
-  }, []);
-
-  const handleBackToSearch = useCallback(() => {
-    setCurrentStep('search');
-    setSearchResults([]);
-    setNearbyPlaces([]);
-    setSelectedPlaces([]);
-    setSelectedDestination(null);
-    setItinerary(null);
-    setError(null);
-  }, []);
-
-  const handlePanToLocation = useCallback((lat: number, lng: number) => {
-    if (mapRef.current) {
-      mapRef.current.flyTo(lat, lng, 15);
-    }
-  }, []);
-
-  const handleZoomIn = useCallback(() => {
-    if (mapRef.current) {
-      mapRef.current.zoomIn();
-    }
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    if (mapRef.current) {
-      mapRef.current.zoomOut();
-    }
-  }, []);
-
-  const handleLocate = useCallback(() => {
-    if (navigator.geolocation && mapRef.current) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          mapRef.current!.flyTo(latitude, longitude, 15);
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-          setError('Unable to get your location. Please check your browser settings.');
-        }
-      );
-    } else {
-      setError('Geolocation is not supported by this browser.');
-    }
-  }, []);
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="relative flex-1">
-        {/* Map Container */}
-        <div className="relative h-screen">
-          <LeafletMap
-            ref={mapRef}
-            destinations={mapDestinations}
-            selectedDestination={selectedDestination}
-            onDestinationSelect={() => { }}
-            center={selectedDestination ? [selectedDestination.latitude, selectedDestination.longitude] : [37.7749, -122.4194]}
-            zoom={12}
-          />
-
-          {/* Search Bar - Always visible */}
-          <SearchBar
-            onSearchResults={handleSearchResults}
-            onLoading={setLoading}
-          />
-
-          {/* Map Controls */}
-          <MapControls
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onLocate={handleLocate}
-          />
-
-          {/* Nearby Places Info Overlay */}
-          {currentStep === 'places' && nearbyPlaces.length > 0 && (
-            <div className="absolute top-20 left-6 z-20 bg-white rounded-lg shadow-lg border border-gray-200 p-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-gray-700">
-                  {nearbyPlaces.length} places found nearby
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Select the places you want to visit
-              </p>
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-emerald-50" />
+        <div className="relative max-w-6xl mx-auto px-6 py-24 md:py-32">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-6">
+              <Sparkles className="w-4 h-4" />
+              AI-Powered Trip Planning
             </div>
-          )}
-
-          {/* Map Pins Info Overlay */}
-          {mapDestinations.length > 1 && (
-            <div className="absolute top-32 left-6 z-20 bg-white rounded-lg shadow-lg border border-gray-200 p-3">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-gray-700">
-                  {mapDestinations.length} pins on map
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedDestination ? '1 destination + ' : ''}{nearbyPlaces.length} nearby places
-              </p>
+            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 tracking-tight leading-tight">
+              Plan your dream trip in&nbsp;minutes
+            </h1>
+            <p className="mt-6 text-lg text-gray-600 leading-relaxed max-w-xl">
+              Search any destination, pick the places you love, and let AI craft a
+              personalized day-by-day itinerary — complete with an interactive map.
+            </p>
+            <div className="mt-10 flex flex-col sm:flex-row gap-4">
+              <Link
+                href="/explore"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors"
+              >
+                <MapPin className="w-5 h-5" />
+                Start Exploring
+              </Link>
+              <Link
+                href="/trips"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                <Calendar className="w-5 h-5" />
+                My Trips
+              </Link>
             </div>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="absolute top-20 left-6 right-6 z-20 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg">
-              <div className="flex justify-between items-center">
-                <span>{error}</span>
-                <button
-                  onClick={() => setError(null)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Loading Overlay */}
-          {loading && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
-              <div className="bg-white rounded-lg p-6 shadow-xl">
-                <div className="flex items-center space-x-3">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  <span className="text-lg font-medium">Loading nearby places...</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step-based Component Rendering */}
-          {currentStep === 'search' && searchResults.length > 0 && (
-            <DestinationList
-              places={searchResults}
-              onDestinationSelect={handleDestinationSelect}
-              onBack={handleBackToSearch}
-            />
-          )}
-
-          {currentStep === 'places' && nearbyPlaces.length > 0 && (
-            <PlaceSelector
-              places={nearbyPlaces}
-              selectedPlaces={selectedPlaces}
-              onSelectionChange={setSelectedPlaces}
-              onNext={handlePlacesSelected}
-              onBack={handleBackToSearch}
-            />
-          )}
-
-          {currentStep === 'trip' && selectedDestination && (
-            <TripForm
-              destination={selectedDestination}
-              selectedPlaces={selectedPlaces}
-              onTripPlanned={handleTripPlanned}
-              onBack={() => setCurrentStep('places')}
-            />
-          )}
-
-          {currentStep === 'itinerary' && itinerary && (
-            <ItineraryView
-              itinerary={itinerary}
-              onBack={() => setCurrentStep('trip')}
-              onPanToLocation={handlePanToLocation}
-            />
-          )}
-
-          {/* Legacy Destination Card - Keep for backward compatibility */}
-          {selectedDestination && currentStep === 'search' && (
-            <DestinationCard
-              destination={selectedDestination}
-              onClose={() => setSelectedDestination(null)}
-              onPanToLocation={handlePanToLocation}
-            />
-          )}
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-6 py-20">
+        <h2 className="text-3xl font-bold text-gray-900 text-center mb-4">
+          How it works
+        </h2>
+        <p className="text-gray-500 text-center mb-14 max-w-lg mx-auto">
+          Three simple steps from idea to a fully planned trip
+        </p>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            {
+              icon: Globe,
+              title: "Search a Destination",
+              description:
+                "Type any city or place — our geocoder finds it instantly and drops you on an interactive map.",
+              color: "bg-blue-100 text-blue-600",
+            },
+            {
+              icon: MapPin,
+              title: "Pick Your Places",
+              description:
+                "Browse nearby attractions, restaurants, and landmarks. Select the ones you want in your trip.",
+              color: "bg-emerald-100 text-emerald-600",
+            },
+            {
+              icon: Sparkles,
+              title: "Generate Itinerary",
+              description:
+                "AI builds a day-by-day schedule optimized for distance, timing, and your budget.",
+              color: "bg-amber-100 text-amber-600",
+            },
+          ].map((step, i) => (
+            <div
+              key={i}
+              className="relative p-8 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="absolute -top-4 -left-2 w-8 h-8 bg-gray-900 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                {i + 1}
+              </div>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${step.color}`}>
+                <step.icon className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {step.title}
+              </h3>
+              <p className="text-gray-500 leading-relaxed">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-gray-900 text-white">
+        <div className="max-w-6xl mx-auto px-6 py-20 text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to plan your next adventure?</h2>
+          <p className="text-gray-400 mb-8 max-w-md mx-auto">
+            No sign-up required to explore. Create an account to save and share your trips.
+          </p>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-gray-900 rounded-xl font-semibold hover:bg-gray-100 transition-colors"
+          >
+            <MapPin className="w-5 h-5" />
+            Get Started
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

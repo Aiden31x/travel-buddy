@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import './globals.css'; // Import global CSS
+import Providers from '@/components/Providers';
+import './globals.css';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Travel Buddy',
-  description: 'Plan your trips easily',
+  title: 'Wanderlust — AI Travel Planner',
+  description: 'Plan your perfect trip with AI-powered itineraries, interactive maps, and curated local recommendations.',
 };
 
 export default function RootLayout({
@@ -26,7 +27,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

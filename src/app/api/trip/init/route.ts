@@ -236,12 +236,11 @@ export async function POST(request: NextRequest) {
         }
         
         // Strategy 4: Word-by-word partial matching
-        const requestedWords = normalizedRequested.split(' ').filter(word => word.length > 2);
-        const nearbyWords = normalizedNearby.split(' ').filter(word => word.length > 2);
+        const requestedWords = normalizedRequested.split(' ').filter((word: string) => word.length > 2);
+        const nearbyWords = normalizedNearby.split(' ').filter((word: string) => word.length > 2);
         
-        // If 50% of significant words match, consider it a match
-        const matchingWords = requestedWords.filter(reqWord => 
-          nearbyWords.some(nearbyWord => 
+        const matchingWords = requestedWords.filter((reqWord: string) => 
+          nearbyWords.some((nearbyWord: string) => 
             nearbyWord.includes(reqWord) || reqWord.includes(nearbyWord)
           )
         );

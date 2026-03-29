@@ -1,15 +1,60 @@
 import React, { useState } from "react";
-import { ArrowLeft, Calendar, MapPin, Clock, ChevronDown, ChevronUp } from "lucide-react";
-import { Itinerary } from "./types";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Calendar, MapPin, Clock, ChevronDown, ChevronUp, Save, Check } from "lucide-react";
+import { Itinerary, Destination, Place } from "./types";
 
 interface Props {
   itinerary: Itinerary;
+  destination?: Destination | null;
+  selectedPlaces?: Place[];
   onBack: () => void;
   onPanToLocation: (lat: number, lng: number) => void;
 }
 
-const ItineraryView: React.FC<Props> = ({ itinerary, onBack, onPanToLocation }) => {
-  const [expandedDays, setExpandedDays] = useState<number[]>([1]); // First day expanded by default
+const ItineraryView: React.FC<Props> = ({ itinerary, destination, selectedPlaces, onBack, onPanToLocation }) => {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [expandedDays, setExpandedDays] = useState<number[]>([1]);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSaveTrip = async () => {
+    if (!session?.user || !destination) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Trip to ${itinerary.destination}`,
+          destination: itinerary.destination,
+          destinationLat: destination.latitude,
+          destinationLon: destination.longitude,
+          days: itinerary.days,
+          budget: itinerary.budget,
+          itinerary,
+          isPublic: false,
+          places: selectedPlaces?.map((p) => ({
+            name: p.name,
+            lat: p.lat,
+            lon: p.lon,
+            type: p.type,
+            category: p.category,
+          })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSaved(true);
+        setTimeout(() => router.push(`/trips/${data.trip.id}`), 1000);
+      }
+    } catch (err) {
+      console.error("Failed to save trip:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleDayExpansion = (day: number) => {
     setExpandedDays(prev =>
@@ -150,7 +195,32 @@ const ItineraryView: React.FC<Props> = ({ itinerary, onBack, onPanToLocation }) 
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
+      <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
+        {session?.user && destination && (
+          <button
+            onClick={handleSaveTrip}
+            disabled={saving || saved}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              saved
+                ? "bg-green-500 text-white"
+                : "bg-gray-900 text-white hover:bg-gray-800"
+            } disabled:opacity-60`}
+          >
+            {saved ? (
+              <>
+                <Check className="w-4 h-4" />
+                Saved! Redirecting...
+              </>
+            ) : saving ? (
+              "Saving..."
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Trip
+              </>
+            )}
+          </button>
+        )}
         <div className="flex items-center justify-between">
           <div className="text-xs text-gray-500">
             {itinerary.itinerary.length} day{itinerary.itinerary.length !== 1 ? 's' : ''} planned

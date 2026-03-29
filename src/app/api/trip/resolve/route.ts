@@ -200,13 +200,12 @@ export async function POST(request: NextRequest) {
 
     // We need destination coordinates to center our search
     // For this, we'll use autocomplete to get destination coords
-    const destinationResult = await fetch(
-      `/api/places/autocomplete?q=${encodeURIComponent(itineraryData.destination)}`,
-      {
-        method: 'GET',
-        headers: { 'User-Agent': 'WanderLustwand/1.0' },
-      }
-    );
+    const autocompleteUrl = new URL('/api/places/autocomplete', request.url);
+    autocompleteUrl.searchParams.set('q', itineraryData.destination);
+    const destinationResult = await fetch(autocompleteUrl.toString(), {
+      method: 'GET',
+      headers: { 'User-Agent': 'Wanderlust/1.0' },
+    });
 
     let destinationLat = '0';
     let destinationLon = '0';
