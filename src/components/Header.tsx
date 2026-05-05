@@ -23,9 +23,7 @@ const Header: React.FC = () => {
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center space-x-8">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-black dark:bg-white rounded flex items-center justify-center">
-              <span className="text-white dark:text-black text-sm font-bold">W</span>
-            </div>
+            <Image src="/logo.png" alt="Wanderlust logo" width={32} height={32} className="w-8 h-8 object-contain" />
             <span className="text-xl font-semibold text-gray-900 dark:text-white">
               Wanderlust
             </span>
