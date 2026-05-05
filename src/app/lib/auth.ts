@@ -14,6 +14,13 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
+      // Request the user:email scope so private GitHub emails are also returned.
+      // Without this, users with a private primary email on GitHub get no email
+      // back, causing sign-in to fail silently.
+      authorization: {
+        params: { scope: "read:user user:email" },
+      },
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   // Do NOT set session.strategy: "jwt" when using PrismaAdapter.
