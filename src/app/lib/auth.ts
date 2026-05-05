@@ -16,21 +16,14 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GITHUB_SECRET!,
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
+  // Do NOT set session.strategy: "jwt" when using PrismaAdapter.
+  // The adapter manages sessions via the database (default "database" strategy).
   callbacks: {
-    async session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
+    async session({ session, user }) {
+      if (session.user && user?.id) {
+        session.user.id = user.id;
       }
       return session;
-    },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-      }
-      return token;
     },
   },
   pages: {
