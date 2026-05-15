@@ -2,6 +2,8 @@
 
 An AI-powered travel planning app that helps you discover destinations, curate places to visit, and generate personalized day-by-day itineraries — all with an interactive map experience.
 
+![App Screenshot](public/home.png)
+
 ## Tech Stack
 
 - **Framework:** Next.js 15 (App Router) + React 19 + TypeScript
