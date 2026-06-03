@@ -85,7 +85,7 @@ const SearchBar: React.FC<Props> = ({ onSearchResults, onLoading }) => {
           onChange={(e) => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Where would you like to go today?"
-          className="w-80 pl-12 pr-12 py-3 bg-white rounded-xl shadow-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-96 pl-12 pr-12 py-3 bg-white rounded-xl shadow-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         {isSearching && (
           <Loader className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 animate-spin" />

@@ -111,12 +111,12 @@ export default function BestTimeToVisit({ destination, lat, lon }: Props) {
             <div className="grid grid-cols-3 gap-1.5 text-[10px]">
               {analysis.months.map((m) => (
                 <div key={m.month} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 text-center">
-                  <p className="font-semibold text-gray-700 dark:text-gray-300">{m.month.slice(0, 3)}</p>
-                  <span className={`inline-block px-1.5 py-0.5 rounded mt-1 ${CROWD_COLORS[m.crowdLevel]}`}>
-                    {m.crowdLevel}
+                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">{m.month.slice(0, 3)}</p>
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded ${CROWD_COLORS[m.crowdLevel]}`}>
+                    👥 {m.crowdLevel}
                   </span>
-                  <span className={`inline-block px-1.5 py-0.5 rounded mt-0.5 ${PRICE_COLORS[m.priceLevel]}`}>
-                    ${m.priceLevel}
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded mt-0.5 ${PRICE_COLORS[m.priceLevel]}`}>
+                    💲 {m.priceLevel}
                   </span>
                 </div>
               ))}
