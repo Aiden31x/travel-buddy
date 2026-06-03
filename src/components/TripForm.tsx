@@ -76,9 +76,9 @@ const TripForm: React.FC<Props> = ({ destination, selectedPlaces, onTripPlanned,
   };
 
   return (
-    <div className="absolute top-6 right-6 z-10 w-96 bg-white rounded-xl shadow-lg border border-gray-200">
+    <div className="absolute top-6 right-6 z-10 w-96 bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col max-h-[calc(100vh-3rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
         <button
           onClick={onBack}
           disabled={loading}
@@ -93,7 +93,7 @@ const TripForm: React.FC<Props> = ({ destination, selectedPlaces, onTripPlanned,
         </h3>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-6">
+      <form onSubmit={handleSubmit} className="p-4 space-y-6 overflow-y-auto">
         {/* Destination Summary */}
         <div className="bg-gray-50 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 mb-2">{destination.name}</h4>
