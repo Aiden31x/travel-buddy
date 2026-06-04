@@ -22,6 +22,8 @@ An AI-powered travel planning app that helps you discover destinations, curate p
 
 ## Architecture
 
+![Architecture](public/Architecture.jpeg)
+
 ```mermaid
 flowchart LR
     subgraph client [Client]
