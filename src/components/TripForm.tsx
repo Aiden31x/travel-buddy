@@ -93,7 +93,7 @@ const TripForm: React.FC<Props> = ({ destination, selectedPlaces, onTripPlanned,
         </h3>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 space-y-6 overflow-y-auto">
+      <form onSubmit={handleSubmit} className="flex-1 min-h-0 p-4 space-y-6 overflow-y-auto">
         {/* Destination Summary */}
         <div className="bg-gray-50 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 mb-2">{destination.name}</h4>

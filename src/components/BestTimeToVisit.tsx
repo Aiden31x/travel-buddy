@@ -91,7 +91,7 @@ export default function BestTimeToVisit({ destination, lat, lon }: Props) {
       </button>
 
       {expanded && (
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
           {/* Temperature chart */}
           {chartData.length > 0 && (
             <ResponsiveContainer width="100%" height={180}>
